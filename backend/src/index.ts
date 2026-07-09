@@ -1,19 +1,27 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import pool from './db'; 
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware (промежуточные обработчики)
-app.use(cors()); // Разрешаем запросы с фронтенда
-app.use(express.json()); // Учим сервер понимать JSON в теле запросов
+app.use(cors());
+app.use(express.json());
 
-// Базовый роут для проверки, что сервер жив
-app.get('/api/health', (req, res) => {
-    res.json({ message: 'Backend is working! 🚀' });
+app.get('/api/health', async (req, res) => {
+    try {
+        const dbCheck = await pool.query('SELECT NOW()');
+        res.json({ 
+            message: 'Backend and Database are working! 🚀',
+            dbTime: dbCheck.rows[0].now 
+        });
+    } catch (error) {
+        console.error('DB Error:', error);
+        res.status(500).json({ message: 'Database connection failed' });
+    }
 });
 
 app.listen(PORT, () => {
