@@ -2,7 +2,11 @@
 import { Request, Response } from 'express';
 import pool from '../db';
 
-// Получить все привычки с флагом выполнения на СЕГОДНЯ
+// Константы геймификации
+const XP_PER_COMPLETION = 10;
+const BASE_XP_FOR_LEVEL_UP = 100; // Сколько XP нужно для перехода на 2 уровень
+const XP_MULTIPLIER = 1.5; // На сколько увеличивается требование для следующего уровня
+
 export const getHabits = async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
@@ -22,7 +26,6 @@ export const getHabits = async (req: Request, res: Response) => {
     }
 };
 
-// Создать новую привычку
 export const createHabit = async (req: Request, res: Response) => {
     const { title, description } = req.body;
     try {
@@ -37,7 +40,6 @@ export const createHabit = async (req: Request, res: Response) => {
     }
 };
 
-// Удалить привычку
 export const deleteHabit = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
@@ -49,27 +51,67 @@ export const deleteHabit = async (req: Request, res: Response) => {
     }
 };
 
-// Отметить привычку как выполненную СЕГОДНЯ
 export const completeHabit = async (req: Request, res: Response) => {
     const { id } = req.params;
+    
+    // Используем транзакцию, чтобы гарантировать целостность данных
+    const client = await pool.connect();
     try {
-        const result = await pool.query(
-            'INSERT INTO completions (habit_id, completed_at) VALUES ($1, CURRENT_DATE) RETURNING *',
+        await client.query('BEGIN');
+
+        // 1. Создаем запись о выполнении
+        await client.query(
+            'INSERT INTO completions (habit_id, completed_at) VALUES ($1, CURRENT_DATE)',
             [id]
         );
-        res.status(201).json(result.rows[0]);
+
+        // 2. Получаем текущего пользователя (пока берем первого, позже привяжем к авторизации)
+        const userRes = await client.query('SELECT id, level, xp FROM users ORDER BY id LIMIT 1');
+        
+        if (userRes.rows.length > 0) {
+            const user = userRes.rows[0];
+            let newXp = user.xp + XP_PER_COMPLETION;
+            let newLevel = user.level;
+
+            // 3. Проверяем, не пора ли повысить уровень
+            const xpNeededForNextLevel = Math.floor(BASE_XP_FOR_LEVEL_UP * Math.pow(XP_MULTIPLIER, user.level - 1));
+            
+            if (newXp >= xpNeededForNextLevel) {
+                newLevel += 1;
+                newXp -= xpNeededForNextLevel; // Переносим остаток XP на следующий уровень
+            }
+
+            // 4. Обновляем данные пользователя
+            await client.query(
+                'UPDATE users SET level = $1, xp = $2 WHERE id = $3',
+                [newLevel, newXp, user.id]
+            );
+
+            // Возвращаем обновленные данные пользователя вместе с ответом
+            const updatedUser = await client.query('SELECT level, xp FROM users WHERE id = $1', [user.id]);
+            res.status(201).json({ 
+                message: 'Привычка выполнена!', 
+                xpGained: XP_PER_COMPLETION,
+                user: updatedUser.rows[0]
+            });
+        } else {
+            res.status(201).json({ message: 'Привычка выполнена! (Пользователь не найден)' });
+        }
+
+        await client.query('COMMIT');
     } catch (error: any) {
-        // Если запись уже есть (уникальное ограничение), игнорируем или возвращаем ошибку
+        await client.query('ROLLBACK');
         if (error.code === '23505') {
             res.status(400).json({ message: 'Привычка уже выполнена сегодня' });
         } else {
             console.error(error);
             res.status(500).json({ message: 'Ошибка при выполнении привычки' });
         }
+    } finally {
+        client.release();
     }
 };
 
-// Отменить выполнение привычки за СЕГОДНЯ
 export const uncompleteHabit = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {

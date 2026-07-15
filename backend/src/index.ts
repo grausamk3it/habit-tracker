@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './db';
 import habitRoutes from './routes/habitRoutes'; // Импортируем наши роуты
+import userRoutes from './routes/userRoutes';
 
 dotenv.config();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 
 // Подключаем роуты по адресу /api/habits
 app.use('/api/habits', habitRoutes);
+app.use('/api/users', userRoutes);
 
 // Тестовый роут
 app.get('/api/health', async (req, res) => {
