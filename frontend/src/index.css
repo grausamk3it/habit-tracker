@@ -1,3 +1,28 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Глобальные стили для всей страницы */
+body {
+  background-color: #b9e5c8; /* Мятный фон */
+  color: #2b1a12; /* Эспрессо текст */
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  min-height: 100vh;
+}
+
+/* Стилизация скроллбара (опционально, но выглядит стильно) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #b9e5c8;
+}
+::-webkit-scrollbar-thumb {
+  background: #2b1a12;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a332a;
+}

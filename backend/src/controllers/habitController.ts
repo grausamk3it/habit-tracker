@@ -1,19 +1,17 @@
 // backend/src/controllers/habitController.ts
 import { Request, Response } from 'express';
 import pool from '../db';
+import { checkAndUnlockAchievements } from './achievementController'; // <-- Добавлен импорт
 
-// Константы геймификации
 const XP_PER_COMPLETION = 10;
-const BASE_XP_FOR_LEVEL_UP = 100; // Сколько XP нужно для перехода на 2 уровень
-const XP_MULTIPLIER = 1.5; // На сколько увеличивается требование для следующего уровня
+const BASE_XP_FOR_LEVEL_UP = 100;
+const XP_MULTIPLIER = 1.5;
 
 export const getHabits = async (req: Request, res: Response) => {
     try {
         const result = await pool.query(`
             SELECT 
-                h.id, 
-                h.title, 
-                h.description, 
+                h.id, h.title, h.description, 
                 CASE WHEN c.id IS NOT NULL THEN true ELSE false END as is_completed_today
             FROM habits h
             LEFT JOIN completions c ON h.id = c.habit_id AND c.completed_at = CURRENT_DATE
@@ -53,9 +51,8 @@ export const deleteHabit = async (req: Request, res: Response) => {
 
 export const completeHabit = async (req: Request, res: Response) => {
     const { id } = req.params;
-    
-    // Используем транзакцию, чтобы гарантировать целостность данных
     const client = await pool.connect();
+    
     try {
         await client.query('BEGIN');
 
@@ -65,40 +62,51 @@ export const completeHabit = async (req: Request, res: Response) => {
             [id]
         );
 
-        // 2. Получаем текущего пользователя (пока берем первого, позже привяжем к авторизации)
+        // 2. Получаем пользователя
         const userRes = await client.query('SELECT id, level, xp FROM users ORDER BY id LIMIT 1');
         
+        let responseData: any = { message: 'Привычка выполнена!', xpGained: XP_PER_COMPLETION };
+
         if (userRes.rows.length > 0) {
             const user = userRes.rows[0];
             let newXp = user.xp + XP_PER_COMPLETION;
             let newLevel = user.level;
 
-            // 3. Проверяем, не пора ли повысить уровень
-            const xpNeededForNextLevel = Math.floor(BASE_XP_FOR_LEVEL_UP * Math.pow(XP_MULTIPLIER, user.level - 1));
+            const xpNeeded = Math.floor(BASE_XP_FOR_LEVEL_UP * Math.pow(XP_MULTIPLIER, user.level - 1));
             
-            if (newXp >= xpNeededForNextLevel) {
+            if (newXp >= xpNeeded) {
                 newLevel += 1;
-                newXp -= xpNeededForNextLevel; // Переносим остаток XP на следующий уровень
+                newXp -= xpNeeded;
             }
 
-            // 4. Обновляем данные пользователя
             await client.query(
                 'UPDATE users SET level = $1, xp = $2 WHERE id = $3',
                 [newLevel, newXp, user.id]
             );
 
-            // Возвращаем обновленные данные пользователя вместе с ответом
-            const updatedUser = await client.query('SELECT level, xp FROM users WHERE id = $1', [user.id]);
-            res.status(201).json({ 
-                message: 'Привычка выполнена!', 
-                xpGained: XP_PER_COMPLETION,
-                user: updatedUser.rows[0]
+            // 3. ПРОВЕРКА АЧИВОК (внутри транзакции!)
+            const totalCompletionsRes = await client.query('SELECT COUNT(*) as count FROM completions');
+            const totalCompletions = parseInt(totalCompletionsRes.rows[0].count);
+            
+            const newAchievements = await checkAndUnlockAchievements(user.id, { 
+                level: newLevel, 
+                totalCompletions 
             });
-        } else {
-            res.status(201).json({ message: 'Привычка выполнена! (Пользователь не найден)' });
+
+            const updatedUser = await client.query('SELECT level, xp FROM users WHERE id = $1', [user.id]);
+            
+            // Формируем единый ответ
+            responseData.user = updatedUser.rows[0];
+            if (newAchievements.length > 0) {
+                responseData.newAchievements = newAchievements;
+            }
         }
 
         await client.query('COMMIT');
+        
+        // ОТПРАВЛЯЕМ ОТВЕТ ТОЛЬКО ЗДЕСЬ, ПОСЛЕ ВСЕХ ОПЕРАЦИЙ
+        res.status(201).json(responseData);
+
     } catch (error: any) {
         await client.query('ROLLBACK');
         if (error.code === '23505') {

@@ -1,0 +1,12 @@
+### 1. Создать новую привычку (POST)
+POST http://localhost:3001/api/habits
+Content-Type: application/json
+
+{
+  "title": "Утренняя зарядка",
+  "description": "15 минут упражнений",
+  "color": "#f59e0b"
+}
+
+### 2. Получить список всех привычек (GET)
+GET http://localhost:3001/api/habits

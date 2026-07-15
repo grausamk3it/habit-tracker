@@ -5,6 +5,7 @@ import pool from './db';
 import habitRoutes from './routes/habitRoutes'; // Импортируем наши роуты
 import userRoutes from './routes/userRoutes';
 import aiRoutes from './routes/aiRoutes';
+import achievementRoutes from './routes/achievementRoutes';
 
 dotenv.config();
 
@@ -13,11 +14,16 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    next();
+});
 
 // Подключаем роуты по адресу /api/habits
 app.use('/api/habits', habitRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/achievements', achievementRoutes);
 
 // Тестовый роут
 app.get('/api/health', async (req, res) => {

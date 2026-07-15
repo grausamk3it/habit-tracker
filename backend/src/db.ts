@@ -1,3 +1,4 @@
+// backend/src/db.ts
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
@@ -9,9 +10,10 @@ const pool = new Pool({
     database: process.env.DB_NAME,
     password: process.env.DB_PASSWORD,
     port: parseInt(process.env.DB_PORT || '5432'),
+    // Явно указываем кодировку клиента
+    client_encoding: 'UTF8', 
 });
 
-// Проверяем, что подключение работает
 pool.on('connect', () => {
     console.log('✅ Connected to PostgreSQL database');
 });

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Trash2, Plus, CheckCircle, Circle, Trophy, Star } from 'lucide-react';
 import AICoach from '../components/AICoach';
+import AchievementsList from '../components/AchievementsList';
 
 interface Habit {
     id: number;
@@ -203,6 +204,7 @@ export default function Habits() {
                     </div>
                 )}
             </div>
+			<AchievementsList />
         </div>
     );
 }

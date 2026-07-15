@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import OpenAI from 'openai';
 import pool from '../db';
+import { unlockAIAchievement } from './achievementController';
 
 // Инициализируем клиент OpenAI, но указываем baseURL для Groq
 const openai = new OpenAI({
@@ -54,6 +55,11 @@ export const getCoachAdvice = async (req: Request, res: Response) => {
         });
 
         const advice = completion.choices[0].message.content;
+		// Разблокируем ачивку за использование ИИ
+const userRes = await pool.query('SELECT id FROM users ORDER BY id LIMIT 1');
+if (userRes.rows.length > 0) {
+    await unlockAIAchievement(userRes.rows[0].id);
+}
         res.json({ advice });
 
     } catch (error) {
