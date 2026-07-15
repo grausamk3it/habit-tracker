@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Trash2, Plus, CheckCircle, Circle, Trophy, Star } from 'lucide-react';
+import AICoach from '../components/AICoach';
 
 interface Habit {
     id: number;
@@ -138,6 +139,8 @@ export default function Habits() {
                     ></div>
                 </div>
             </div>
+
+            <AICoach />
 
             <h2 className="text-2xl font-bold mb-6">Мои привычки</h2>
             
