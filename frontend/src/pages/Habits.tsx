@@ -1,15 +1,17 @@
 // frontend/src/pages/Habits.tsx
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Trash2, Plus, CheckCircle, Circle, Trophy, Star } from 'lucide-react';
 import AICoach from '../components/AICoach';
 import AchievementsList from '../components/AchievementsList';
+import { Trash2, Plus, CheckCircle, Circle, Trophy, Star, Flame } from 'lucide-react';
 
 interface Habit {
     id: number;
     title: string;
     description: string;
     is_completed_today: boolean;
+    streak: number;          // <-- Добавлено
+    weeklyActivity: boolean[]; // <-- Добавлено
 }
 
 interface UserData {
@@ -163,45 +165,66 @@ export default function Habits() {
             <div className="space-y-4">
                 {habits.map((habit) => (
                     <div 
-                        key={habit.id} 
-                        className={`border p-4 rounded-xl shadow-sm flex justify-between items-center transition-all cursor-pointer group ${
-                            habit.is_completed_today 
-                                ? 'bg-emerald-900/20 border-emerald-500/30' 
-                                : 'bg-slate-800 border-slate-700 hover:border-emerald-500/50'
-                        }`}
-                        onClick={() => toggleComplete(habit)}
-                    >
-                        <div className="flex items-center gap-4 flex-grow">
-                            {habit.is_completed_today ? (
-                                <CheckCircle className="text-emerald-500 shrink-0" size={28} />
-                            ) : (
-                                <Circle className="text-slate-500 group-hover:text-emerald-400 shrink-0 transition-colors" size={28} />
-                            )}
-                            <div>
-                                {/* Явный белый текст заголовка */}
-                                <h3 className={`font-semibold text-lg transition-all ${
-                                    habit.is_completed_today 
-                                        ? 'line-through text-emerald-400/70' 
-                                        : 'text-slate-100'
-                                }`}>
-                                    {habit.title}
-                                </h3>
-                                {/* Явный серый текст описания */}
-                                <p className="text-sm text-slate-400">{habit.description}</p>
-                            </div>
-                        </div>
-                        
-                        <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                deleteHabit(habit.id);
-                            }}
-                            className="text-slate-500 hover:text-red-400 p-2 hover:bg-slate-700 rounded-lg transition opacity-0 group-hover:opacity-100"
-                            title="Удалить привычку"
-                        >
-                            <Trash2 size={20} />
-                        </button>
-                    </div>
+    key={habit.id} 
+    className={`border p-4 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 transition-all cursor-pointer group ${
+        habit.is_completed_today 
+            ? 'bg-emerald-900/20 border-emerald-500/30' 
+            : 'bg-slate-800 border-slate-700 hover:border-emerald-500/50'
+    }`}
+    onClick={() => toggleComplete(habit)}
+>
+    {/* Левая часть: Иконка и Текст */}
+    <div className="flex items-center gap-4 flex-grow">
+        {habit.is_completed_today ? (
+            <CheckCircle className="text-emerald-500 shrink-0" size={28} />
+        ) : (
+            <Circle className="text-slate-500 group-hover:text-emerald-400 shrink-0 transition-colors" size={28} />
+        )}
+        <div>
+            <h3 className={`font-semibold text-lg transition-all ${
+                habit.is_completed_today ? 'line-through text-emerald-400/70' : 'text-slate-100'
+            }`}>
+                {habit.title}
+            </h3>
+            <p className="text-sm text-slate-400">{habit.description}</p>
+        </div>
+    </div>
+
+    {/* Правая часть: Серия и Мини-график */}
+    <div className="flex items-center gap-4 sm:justify-end">
+        {/* Серия (Streak) */}
+        <div className="flex items-center gap-1.5 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-slate-700">
+            <Flame size={18} className={habit.streak > 0 ? "text-orange-500 fill-orange-500" : "text-slate-600"} />
+            <span className={`font-bold text-sm ${habit.streak > 0 ? "text-orange-400" : "text-slate-500"}`}>
+                {habit.streak}
+            </span>
+        </div>
+
+        {/* Мини-график за 7 дней (Heatmap) */}
+        <div className="flex gap-1" title="Активность за последние 7 дней">
+            {habit.weeklyActivity.map((isDone, index) => (
+                <div 
+                    key={index}
+                    className={`w-2.5 h-2.5 rounded-sm transition-colors ${
+                        isDone ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-700'
+                    }`}
+                />
+            ))}
+        </div>
+
+        {/* Кнопка удаления */}
+        <button 
+            onClick={(e) => {
+                e.stopPropagation();
+                deleteHabit(habit.id);
+            }}
+            className="text-slate-500 hover:text-red-400 p-2 hover:bg-slate-700 rounded-lg transition opacity-0 group-hover:opacity-100"
+            title="Удалить привычку"
+        >
+            <Trash2 size={20} />
+        </button>
+    </div>
+</div>
                 ))}
                 
                 {habits.length === 0 && (

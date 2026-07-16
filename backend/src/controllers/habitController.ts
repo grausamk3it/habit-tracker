@@ -7,9 +7,19 @@ const XP_PER_COMPLETION = 10;
 const BASE_XP_FOR_LEVEL_UP = 100;
 const XP_MULTIPLIER = 1.5;
 
+// backend/src/controllers/habitController.ts
+
+// Вспомогательная функция для сравнения дат (игнорирует время)
+const isSameDay = (d1: Date, d2: Date) => {
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
+};
+
 export const getHabits = async (req: Request, res: Response) => {
     try {
-        const result = await pool.query(`
+        // 1. Получаем базовые данные о привычках и статусе на СЕГОДНЯ
+        const habitsRes = await pool.query(`
             SELECT 
                 h.id, h.title, h.description, 
                 CASE WHEN c.id IS NOT NULL THEN true ELSE false END as is_completed_today
@@ -17,7 +27,60 @@ export const getHabits = async (req: Request, res: Response) => {
             LEFT JOIN completions c ON h.id = c.habit_id AND c.completed_at = CURRENT_DATE
             ORDER BY h.created_at DESC
         `);
-        res.json(result.rows);
+        
+        const habits = habitsRes.rows;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 2. Для каждой привычки считаем серию и график за 7 дней
+        const enhancedHabits = await Promise.all(habits.map(async (habit) => {
+            // Берем последние 14 выполнений (этого достаточно для расчета серии и 7 дней)
+            const compsRes = await pool.query(
+                `SELECT completed_at FROM completions WHERE habit_id = $1 ORDER BY completed_at DESC LIMIT 14`,
+                [habit.id]
+            );
+            const completions = compsRes.rows.map(r => {
+                const d = new Date(r.completed_at);
+                d.setHours(0, 0, 0, 0);
+                return d;
+            });
+
+            // --- Расчет серии (Streak) ---
+            let streak = 0;
+            let checkDate = new Date(today);
+            
+            // Если сегодня не выполнено, начинаем проверку со вчерашнего дня (чтобы не сбрасывать серию до конца дня)
+            const isTodayDone = completions.some(d => isSameDay(d, today));
+            if (!isTodayDone) {
+                checkDate.setDate(checkDate.getDate() - 1);
+            }
+
+            for (const compDate of completions) {
+                if (isSameDay(compDate, checkDate)) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1); // Сдвигаемся на день назад
+                } else {
+                    break; // Серия прервалась
+                }
+            }
+
+            // --- Расчет графика за последние 7 дней ---
+            const weeklyActivity = [];
+            for (let i = 6; i >= 0; i--) {
+                const targetDate = new Date(today);
+                targetDate.setDate(targetDate.getDate() - i);
+                const isDone = completions.some(d => isSameDay(d, targetDate));
+                weeklyActivity.push(isDone);
+            }
+
+            return {
+                ...habit,
+                streak,
+                weeklyActivity // Массив вида [false, true, true, false, true, true, false]
+            };
+        }));
+
+        res.json(enhancedHabits);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Ошибка при получении привычек' });
