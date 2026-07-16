@@ -7,15 +7,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Твоя палитра
-        mint: '#b9e5c8',
-        espresso: '#2b1a12',
-        // Дополнительные оттенки для интерактивности (hover-эффекты)
-        'mint-dark': '#9dd4b0',
-        'espresso-light': '#4a332a',
+        // Новая палитра Slate & Emerald
+        slate: {
+          900: '#0f172a', // Основной фон / темные элементы
+          800: '#1e293b', // Карточки
+          700: '#334155', // Границы
+        },
+        emerald: {
+          500: '#10b981', // Акцентный цвет (кнопки, галочки)
+          600: '#059669', // Hover эффект
+          50: '#ecfdf5',  // Светлый фон для выполненных задач
+        }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
       }
     },
   },
